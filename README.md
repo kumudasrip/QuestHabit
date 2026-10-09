@@ -2,118 +2,166 @@
 
 **Small quests. Epic growth.**
 
-QuestHabit is a gamified habit tracker that turns everyday activities into quests, XP, levels, streaks, achievements, and personal progress. It is a frontend-only, local-first React application: no account is required and user history remains in the visitor's browser.
+QuestHabit turns everyday habits into small, repeatable quests. Complete a quest, earn XP, build a streak, and make your progress visible without creating an account or sending personal habit data to a server.
 
-> Deploying QuestHabit to Vercel hosts the static frontend. It does **not** send or store habit history in Vercel.
+It is designed for people who want more structure and motivation from habit tracking without the overhead of a cloud account. QuestHabit is a frontend-only, local-first React application: Vercel hosts the interface, while your profile and progress remain in your browser.
 
-## Badges
+## Contents
+
+- [Features](#features)
+- [Technology](#technology)
+- [Getting started](#getting-started)
+- [Privacy and local storage](#privacy-and-local-storage)
+- [Project structure](#project-structure)
+- [Architecture](#architecture)
+- [Contributing](#contributing)
+- [Roadmap](#roadmap)
+- [License](#license)
+
+## Status and badges
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![React](https://img.shields.io/badge/React-18-61DAFB.svg)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6.svg)](https://www.typescriptlang.org/)
 [![Vite](https://img.shields.io/badge/Vite-6-646CFF.svg)](https://vite.dev/)
 
-The repository URL and CI badge are intentionally omitted until this project is published to GitHub.
+## Demo and screenshots
 
-## Screenshots and demo
+There is no public demo URL yet. After deploying, add the genuine URL here.
 
-Screenshots should be added to `docs/images/` after a deployment is available. Do not treat this section as a live demo link: no public demo URL has been configured yet.
+Screenshots are intentionally not fabricated. To add them:
+
+1. Capture the onboarding, dashboard, and one responsive/mobile view from a real build.
+2. Save optimized images under `docs/images/`.
+3. Add linked images to this section, with useful alt text.
 
 ## Features
 
-- First-use onboarding with display name and avatar selection
-- Quest creation, editing, archiving, reactivation, deletion, search, and category filtering
-- Daily, weekday, weekly, and custom schedule support in the scheduling engine
-- One completion and one historical XP reward per quest and local calendar date
-- XP progression, levels, ranks, current and longest streaks
-- Achievement collection with derived unlock conditions
+### Daily progress
+
+- Local onboarding with display name and avatar selection
+- Daily quest board with completion and undo
+- XP, levels, ranks, current streak, and longest streak
+- Achievement collection derived from completed quests, XP, streaks, and categories
+
+### Quest management
+
+- Create, edit, archive, reactivate, and delete quests
+- Search quests and filter by category
+- Daily, weekday, and weekly scheduling through the current quest form
+- Local date-aware completion records with historical XP values
+- Additional `Custom` scheduling support in the domain model for future UI expansion
+
+### Discovery and reflection
+
 - Habit Library templates
-- Calendar activity history and category progress insights
-- Avatar and cosmetic reward screen
-- Midnight, Forest, Ember, and Light themes
-- JSON export, validated import, and local reset
+- Calendar activity history
+- Category-based progress insights
+- Avatar selection and cosmetic reward requirements
 - Responsive desktop sidebar and mobile navigation
 
-## Tech stack
+### Personalization and data
 
-- React and React Router for the application UI and navigation
-- TypeScript for type-safe domain models
-- Vite for development and static production builds
-- Lucide React for icons
-- Vitest for pure game-logic tests
-- ESLint and Prettier for code quality
-- Browser `localStorage` for local persistence
+- Midnight Violet, Forest Realm, Ember Quest, and Light themes
+- JSON export, basic shape-validated import, and local reset
+- Recovery messaging for unreadable state and blocked/full browser storage
+
+## Technology
+
+| Technology | Role |
+| --- | --- |
+| React | UI and page composition |
+| TypeScript | Domain and component type safety |
+| Vite | Development server and static production build |
+| React Router | Browser-side navigation |
+| Lucide React | Interface icons |
+| Vitest | Pure game-logic tests |
+| ESLint and Prettier | Code quality and formatting |
+| Browser `localStorage` | Local persistence |
+
+`recharts` and `motion` are declared dependencies for the project's planned analytics and interaction improvements; the current screens use CSS-based presentation and do not yet depend on them at runtime.
 
 ## Getting started
 
+Prerequisites: a current Node.js LTS release and npm.
+
 ```bash
-git clone <YOUR_REPOSITORY_URL>
+git clone https://github.com/kumudasrip/QuestHabit
 cd QuestHabit
 npm install
 npm run dev
 ```
 
-`<YOUR_REPOSITORY_URL>` is a placeholder until the actual GitHub repository is known.
-
 Available commands:
 
 ```bash
 npm run dev       # Start the Vite development server
-npm run typecheck # Run TypeScript's project check
+npm run typecheck # Run the TypeScript project check
 npm run lint      # Run ESLint
 npm test          # Run Vitest once
 npm run build     # Type-check and create dist/
-npm run format    # Format the repository with Prettier
+npm run format    # Format files with Prettier
 ```
 
-## How local storage works
+## Privacy and local storage
 
-QuestHabit stores the profile, preferences, quests, completions, and achievement state in the browser under `questhabit.state`. No login is required. Data survives refreshes and reopening the site in the same browser profile, subject to browser storage policies.
+QuestHabit stores profile details, preferences, quests, completion records, and achievement IDs in one browser storage document under the key `questhabit.state`.
 
-- Different browsers and devices have separate data.
-- Clearing site data can erase progress.
-- Private browsing and storage restrictions may prevent persistence.
-- Export a JSON backup before moving browsers or resetting local data.
-- Import requires a valid backup and explicit confirmation before replacement.
-- Storage parsing and writes fail safely with a recovery message rather than silently pretending data was saved.
+- State is loaded when the React app starts.
+- Meaningful state changes are serialized immediately through the storage boundary.
+- Refreshing or reopening the deployed site in the same browser profile reads the same local data.
+- Another browser, device, private window, or cleared site data has a separate or empty state.
+- Storage policies, private browsing, quota limits, or disabled storage can prevent persistence.
+- Settings can export a JSON backup and import it after basic shape validation and explicit confirmation.
+- Corrupt stored JSON starts a fresh local profile and shows a recovery message.
 
-Vercel serves the static application assets. It does not become a database or synchronization service.
+This is local browser storage, not synchronization. Vercel serves static frontend assets and does not become a database for user progress.
 
 ## Project structure
 
 ```text
 src/
-  App.tsx              UI, routes, page composition, and user interactions
+  App.tsx              Route composition, page UI, and interactions
   main.tsx             React entry point
-  styles.css           Design system and responsive layout
+  styles.css           Design system, themes, and responsive layout
   lib/
-    game.ts            Pure quest, XP, date, scheduling, and streak rules
+    game.ts            Quest, XP, date, scheduling, and streak rules
     storage.ts         Validated localStorage load/save boundary
-    game.test.ts       Core progression, streak, and scheduling tests
-.github/workflows/     Continuous integration
-docs/                  Architecture, storage, and roadmap documentation
+    game.test.ts       Core progression, streak, and schedule tests
+docs/
+  ARCHITECTURE.md      Component and data-flow explanation
+  LOCAL_STORAGE.md     Persistence and privacy details
+  ROADMAP.md           Completed work and proposed milestones
+.github/
+  workflows/ci.yml     Typecheck, lint, test, and build checks
 ```
 
-## Deployment on Vercel
+## Architecture
 
-1. Push the project to GitHub.
-2. Import the repository into Vercel.
-3. Choose the Vite framework preset if Vercel does not detect it automatically.
-4. Use `npm run build` as the build command.
-5. Use `dist` as the output directory.
-6. Deploy.
-7. On the deployed URL, create a quest, complete it, refresh the page, and confirm the progress remains.
+```mermaid
+flowchart LR
+    User[User action] --> UI[React pages in App.tsx]
+    UI --> Rules[Pure rules in lib/game.ts]
+    Rules --> State[React AppState]
+    State --> Persist[lib/storage.ts]
+    Persist --> Browser[(Browser localStorage)]
+    Browser --> Persist
+    State --> Derived[XP, levels, streaks, insights]
+    Derived --> UI
+```
 
-The app uses browser-history routing through React Router. `vercel.json` rewrites browser requests to the static `index.html` entry point so direct route navigation and refreshes work; no serverless function or API is needed.
+The detailed boundaries and extension guidance are in [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md).
 
 ## Contributing
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md) and [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md). Contributions are welcome for templates, achievements, cosmetics, themes, accessibility, responsive design, analytics, tests, documentation, and performance.
+Start with [CONTRIBUTING.md](./CONTRIBUTING.md). Please also read the community expectations in [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md).
+
+Useful contribution areas include templates, achievement definitions, cosmetic packs, themes, accessibility, responsive design, analytics, tests, documentation, and performance. All contributions must preserve the frontend-only, local-first model.
 
 ## Roadmap
 
-Completed functionality is listed above. Proposed enhancements are tracked in [docs/ROADMAP.md](./docs/ROADMAP.md), including richer charting, dedicated component modules, stronger backup schema migrations, and broader automated UI coverage.
+Completed work and proposed milestones are tracked in [docs/ROADMAP.md](./docs/ROADMAP.md). Discuss substantial proposals through GitHub Issues before starting implementation so contributors do not duplicate work.
 
 ## License
 
-QuestHabit is released under the [MIT License](./LICENSE).
+QuestHabit is distributed under the [MIT License](./LICENSE).
