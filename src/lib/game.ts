@@ -1,10 +1,52 @@
-export type Category = 'Health' | 'Learning' | 'Coding' | 'Mindfulness' | 'Productivity' | 'Lifestyle'
-export type Difficulty = 'Easy' | 'Medium' | 'Hard'
-export type Theme = 'midnight' | 'forest' | 'ember' | 'light'
+export const CATEGORIES = ['Health', 'Learning', 'Coding', 'Mindfulness', 'Productivity', 'Lifestyle'] as const
+export type Category = (typeof CATEGORIES)[number]
+
+export const DIFFICULTIES = ['Easy', 'Medium', 'Hard'] as const
+export type Difficulty = (typeof DIFFICULTIES)[number]
+
+export const THEMES = ['midnight', 'forest', 'ember', 'light'] as const
+export type Theme = (typeof THEMES)[number]
+
+export const FREQUENCIES = ['Daily', 'Weekdays', 'Weekly', 'Custom'] as const
+export type Frequency = (typeof FREQUENCIES)[number]
+
+export const QUEST_STATUSES = ['active', 'paused', 'archived'] as const
+export type QuestStatus = (typeof QUEST_STATUSES)[number]
+
+export const ACHIEVEMENT_IDS = [
+  'first',
+  'streak3',
+  'collector',
+  'xp1000',
+  'explorer',
+  'perfect',
+] as const
+export type AchievementId = (typeof ACHIEVEMENT_IDS)[number]
+
+export const ACHIEVEMENTS: [AchievementId, string, string, string][] = [
+  ['first', 'First Steps', 'Complete your first quest', '🌱'],
+  ['streak3', 'Consistency', 'Maintain a 3-day streak', '🔥'],
+  ['collector', 'Quest Collector', 'Create 10 quests', '🗺️'],
+  ['xp1000', 'Century Club', 'Earn 1,000 lifetime XP', '💎'],
+  ['explorer', 'Explorer', 'Complete quests across five categories', '🧭'],
+  ['perfect', 'Perfect Day', 'Complete all eligible quests for a day', '⭐'],
+]
+
+export const isValidCalendarDate = (str: unknown): str is string => {
+  if (typeof str !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(str)) return false
+  const [yStr, mStr, dStr] = str.split('-')
+  const y = Number(yStr)
+  const m = Number(mStr)
+  const d = Number(dStr)
+  if (m < 1 || m > 12 || d < 1 || d > 31) return false
+  const date = new Date(y, m - 1, d)
+  return date.getFullYear() === y && date.getMonth() === m - 1 && date.getDate() === d
+}
+
 export type Quest = {
   id: string; title: string; description: string; icon: string; category: Category
-  difficulty: Difficulty; xp: number; duration: number; frequency: 'Daily' | 'Weekdays' | 'Weekly' | 'Custom'
-  weekdays: number[]; startDate: string; endDate?: string; status: 'active' | 'paused' | 'archived'; createdAt: string
+  difficulty: Difficulty; xp: number; duration: number; frequency: Frequency
+  weekdays: number[]; startDate: string; endDate?: string; status: QuestStatus; createdAt: string
 }
 export type Completion = { id: string; questId: string; date: string; completedAt: string; xp: number }
 export type Profile = { name: string; avatar: string; theme: Theme; onboarding: boolean; target: number; weekStart: 0 | 1; reducedMotion: boolean }
