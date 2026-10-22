@@ -33,6 +33,7 @@ import {
   Zap,
 } from "lucide-react";
 import {
+  ACHIEVEMENTS,
   AppState,
   Category,
   Completion,
@@ -40,7 +41,6 @@ import {
   Quest,
   Theme,
   WEEKDAYS,
-  blankState,
   dueOn,
   id,
   isValidQuest,
@@ -50,7 +50,13 @@ import {
   templates,
   today,
 } from "./lib/game";
-import { loadState, saveState, STORAGE_KEY } from "./lib/storage";
+import {
+  exportBackup,
+  loadState,
+  parseAndValidateBackup,
+  saveState,
+  STORAGE_KEY,
+} from "./lib/storage";
 
 const navItems = [
   ["/", "Overview", Activity],
@@ -1700,14 +1706,7 @@ export function ProgressPage({ state }: { state: AppState }) {
   );
 }
 
-const achievements = [
-  ["first", "First Steps", "Complete your first quest", "🌱"],
-  ["streak3", "Consistency", "Maintain a 3-day streak", "🔥"],
-  ["collector", "Quest Collector", "Create 10 quests", "🗺️"],
-  ["xp1000", "Century Club", "Earn 1,000 lifetime XP", "💎"],
-  ["explorer", "Explorer", "Complete quests across five categories", "🧭"],
-  ["perfect", "Perfect Day", "Complete all eligible quests for a day", "⭐"],
-];
+const achievements = ACHIEVEMENTS;
 
 export function Achievements({ state }: { state: AppState }) {
   const xp = state.completions.reduce((a, c) => a + c.xp, 0);
@@ -1876,7 +1875,7 @@ export function SettingsPage({
 }) {
   const p = state.profile;
   const exportData = () => {
-    const blob = new Blob([JSON.stringify(state, null, 2)], {
+    const blob = new Blob([exportBackup(state)], {
       type: "application/json",
     });
     const a = document.createElement("a");
@@ -1885,33 +1884,42 @@ export function SettingsPage({
     a.click();
     URL.revokeObjectURL(a.href);
   };
-  const importData = (file?: File) => {
+  const importData = (file?: File, inputElement?: HTMLInputElement) => {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        const incoming = JSON.parse(String(reader.result));
-        if (
-          !incoming?.profile ||
-          !Array.isArray(incoming.quests) ||
-          !Array.isArray(incoming.completions)
-        )
-          throw new Error("invalid");
-        if (
-          confirm(
-            `Replace local progress with ${incoming.quests.length} quests and ${incoming.completions.length} completions?`,
-          )
-        )
+        const text = String(reader.result);
+        const result = parseAndValidateBackup(text);
+        if (!result.success) {
+          alert(`Backup import failed: ${result.error}`);
+          return;
+        }
+        const { state: importedState, migrated } = result;
+        const msg = migrated
+          ? `Migrate and replace local progress with ${importedState.quests.length} quests and ${importedState.completions.length} completions (from unversioned backup)?`
+          : `Replace local progress with ${importedState.quests.length} quests and ${importedState.completions.length} completions?`;
+
+        if (confirm(msg)) {
           update(
-            {
-              ...blankState(),
-              ...incoming,
-              profile: { ...blankState().profile, ...incoming.profile },
-            },
-            "Backup imported successfully",
+            importedState,
+            migrated
+              ? "Backup migrated and imported successfully"
+              : "Backup imported successfully",
           );
+        }
       } catch {
-        alert("That backup is not a valid QuestHabit export.");
+        alert("An unexpected error occurred while reading the backup file.");
+      } finally {
+        if (inputElement) {
+          inputElement.value = "";
+        }
+      }
+    };
+    reader.onerror = () => {
+      alert("Failed to read the backup file.");
+      if (inputElement) {
+        inputElement.value = "";
       }
     };
     reader.readAsText(file);
@@ -2087,7 +2095,7 @@ export function SettingsPage({
                 type="file"
                 accept="application/json"
                 className="sr-only"
-                onChange={(e) => importData(e.target.files?.[0])}
+                onChange={(e) => importData(e.target.files?.[0], e.target)}
               />
             </label>
           </div>
