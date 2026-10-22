@@ -89,13 +89,14 @@ QuestHabit uses a versioned JSON backup format (`version: 1`) to ensure data int
 **Import:** Settings reads the selected file, parses JSON, and performs strict validation and schema migration:
 
 1. **Schema versioning & migration**:
-   - Backups containing `version: 1` are validated against schema version 1.
+   - Backups containing `version: 1` are validated against schema version 1 and require a valid `exportedAt` timestamp.
    - Legacy unversioned backups (lacking a `version` property) are automatically recognized and migrated to version 1: missing optional profile fields receive safe defaults from `blankState().profile`, and missing `unlocked` arrays default to `[]`.
    - Backups with invalid versions or unsupported future versions (e.g., higher than current supported version) are rejected with clear user-facing errors.
 2. **Strict record validation**:
+   - **Timestamps (`exportedAt`, `createdAt`, `completedAt`):** Evaluated with a strict ISO date-time validator checking complete timestamp and calendar components. Date-only strings, locale dates, invalid time units, and impossible calendar dates (such as February 29 on non-leap years) are rejected.
    - **Profile:** Display name must be a string, avatar must be a non-empty string, theme must match one of the defined themes, `target` must be an integer $\ge 1$, `weekStart` must be 0 or 1, and `onboarding` and `reducedMotion` must be booleans.
-   - **Quests:** Each quest must contain valid IDs, non-empty titles, icons, categories, difficulties, non-negative integer XP and duration, valid frequencies and weekday lists, valid local calendar dates (`YYYY-MM-DD`), and `endDate` must not precede `startDate`.
-   - **Completions:** Each completion must have a non-empty ID, a valid local calendar date (`YYYY-MM-DD`), valid completion timestamp, and non-negative integer XP. Historical completion XP is preserved and never recalculated during import.
+   - **Quests:** Each quest must contain valid IDs, non-empty titles, icons, categories, difficulties, non-negative integer XP and duration, valid frequencies and weekday lists, valid local calendar dates (`YYYY-MM-DD`), `endDate` must not precede `startDate`, and a strict ISO date-time `createdAt` timestamp.
+   - **Completions:** Each completion must have a non-empty ID, a valid local calendar date (`YYYY-MM-DD`), a strict ISO date-time `completedAt` timestamp, and non-negative integer XP. Historical completion XP is preserved and never recalculated during import.
    - **Unlocked achievements:** Each achievement ID is validated against known milestone badge IDs, and duplicates are removed.
 3. **Duplicate and reference checks**:
    - Duplicate quest IDs are detected and rejected.

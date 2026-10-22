@@ -4,6 +4,7 @@ import {
   STORAGE_KEY,
   createBackup,
   exportBackup,
+  isValidIsoDateTime,
   loadState,
   parseAndValidateBackup,
   saveState,
@@ -101,6 +102,7 @@ describe('createBackup & exportBackup', () => {
     const backup = createBackup(state)
     expect(backup.version).toBe(CURRENT_BACKUP_VERSION)
     expect(backup.exportedAt).toBeDefined()
+    expect(isValidIsoDateTime(backup.exportedAt)).toBe(true)
     expect(backup.profile.name).toBe('Tester')
     expect(backup.quests).toHaveLength(1)
     expect(backup.completions).toHaveLength(1)
@@ -112,7 +114,85 @@ describe('createBackup & exportBackup', () => {
     const json = exportBackup(state)
     const parsed = JSON.parse(json)
     expect(parsed.version).toBe(1)
+    expect(isValidIsoDateTime(parsed.exportedAt)).toBe(true)
     expect(parsed.profile.name).toBe('Tester')
+  })
+})
+
+describe('isValidIsoDateTime', () => {
+  it('accepts valid ISO date-time timestamps with UTC Z suffix', () => {
+    expect(isValidIsoDateTime('2026-01-01T08:00:00.000Z')).toBe(true)
+    expect(isValidIsoDateTime('2026-01-01T08:00:00Z')).toBe(true)
+    expect(isValidIsoDateTime('2026-12-31T23:59:59.999Z')).toBe(true)
+  })
+
+  it('accepts valid ISO date-time timestamps with timezone offsets', () => {
+    expect(isValidIsoDateTime('2026-01-01T08:00:00+05:30')).toBe(true)
+    expect(isValidIsoDateTime('2026-01-01T08:00:00-08:00')).toBe(true)
+    expect(isValidIsoDateTime('2026-06-15T12:00:00+00:00')).toBe(true)
+    expect(isValidIsoDateTime('2026-01-01T08:00:00.123+02:00')).toBe(true)
+  })
+
+  it('accepts valid leap days in leap years', () => {
+    expect(isValidIsoDateTime('2024-02-29T12:00:00.000Z')).toBe(true)
+    expect(isValidIsoDateTime('2000-02-29T00:00:00.000Z')).toBe(true)
+  })
+
+  it('rejects impossible calendar dates', () => {
+    // Non-leap year February 29
+    expect(isValidIsoDateTime('2026-02-29T12:00:00.000Z')).toBe(false)
+    expect(isValidIsoDateTime('1900-02-29T12:00:00.000Z')).toBe(false)
+    // February 30 and 31
+    expect(isValidIsoDateTime('2026-02-30T10:00:00.000Z')).toBe(false)
+    expect(isValidIsoDateTime('2026-02-31T10:00:00.000Z')).toBe(false)
+    // 31st on months with 30 days
+    expect(isValidIsoDateTime('2026-04-31T10:00:00.000Z')).toBe(false)
+    expect(isValidIsoDateTime('2026-06-31T10:00:00.000Z')).toBe(false)
+    expect(isValidIsoDateTime('2026-09-31T10:00:00.000Z')).toBe(false)
+    expect(isValidIsoDateTime('2026-11-31T10:00:00.000Z')).toBe(false)
+    // Invalid months and days
+    expect(isValidIsoDateTime('2026-00-10T10:00:00.000Z')).toBe(false)
+    expect(isValidIsoDateTime('2026-13-10T10:00:00.000Z')).toBe(false)
+    expect(isValidIsoDateTime('2026-01-00T10:00:00.000Z')).toBe(false)
+    expect(isValidIsoDateTime('2026-01-32T10:00:00.000Z')).toBe(false)
+  })
+
+  it('rejects date-only strings without time components', () => {
+    expect(isValidIsoDateTime('2026-01-01')).toBe(false)
+    expect(isValidIsoDateTime('2024-02-29')).toBe(false)
+  })
+
+  it('rejects locale-formatted, slash, or space-separated date strings', () => {
+    expect(isValidIsoDateTime('01/01/2026')).toBe(false)
+    expect(isValidIsoDateTime('1/1/2026, 8:00:00 AM')).toBe(false)
+    expect(isValidIsoDateTime('Jan 1, 2026')).toBe(false)
+    expect(isValidIsoDateTime('2026/01/01T08:00:00Z')).toBe(false)
+    expect(isValidIsoDateTime('2026-01-01 08:00:00Z')).toBe(false)
+  })
+
+  it('rejects timestamps with missing timezone designators', () => {
+    expect(isValidIsoDateTime('2026-01-01T08:00:00')).toBe(false)
+    expect(isValidIsoDateTime('2026-01-01T08:00:00.000')).toBe(false)
+  })
+
+  it('rejects invalid time and timezone offset values', () => {
+    expect(isValidIsoDateTime('2026-01-01T24:00:00Z')).toBe(false)
+    expect(isValidIsoDateTime('2026-01-01T25:00:00Z')).toBe(false)
+    expect(isValidIsoDateTime('2026-01-01T12:60:00Z')).toBe(false)
+    expect(isValidIsoDateTime('2026-01-01T12:00:60Z')).toBe(false)
+    expect(isValidIsoDateTime('2026-01-01T12:00:00+24:00')).toBe(false)
+    expect(isValidIsoDateTime('2026-01-01T12:00:00+00:60')).toBe(false)
+  })
+
+  it('rejects non-string, empty, or malformed values', () => {
+    expect(isValidIsoDateTime('')).toBe(false)
+    expect(isValidIsoDateTime('   ')).toBe(false)
+    expect(isValidIsoDateTime('invalid-timestamp')).toBe(false)
+    expect(isValidIsoDateTime(null)).toBe(false)
+    expect(isValidIsoDateTime(undefined)).toBe(false)
+    expect(isValidIsoDateTime(1704096000000)).toBe(false)
+    expect(isValidIsoDateTime({})).toBe(false)
+    expect(isValidIsoDateTime([])).toBe(false)
   })
 })
 
@@ -250,6 +330,7 @@ describe('backup validation and schema migration', () => {
   it('rejects invalid profile fields', () => {
     const base = {
       version: 1,
+      exportedAt: '2026-01-02T10:00:00.000Z',
       profile: { ...blankState().profile },
       quests: [],
       completions: [],
@@ -308,6 +389,7 @@ describe('backup validation and schema migration', () => {
   it('rejects invalid quest fields', () => {
     const base = {
       version: 1,
+      exportedAt: '2026-01-02T10:00:00.000Z',
       profile: blankState().profile,
       quests: [sampleQuest()],
       completions: [],
@@ -411,6 +493,7 @@ describe('backup validation and schema migration', () => {
   it('detects and rejects duplicate quest IDs', () => {
     const backup = {
       version: 1,
+      exportedAt: '2026-01-02T10:00:00.000Z',
       profile: blankState().profile,
       quests: [
         sampleQuest({ id: 'quest-duplicate', title: 'Quest A' }),
@@ -430,6 +513,7 @@ describe('backup validation and schema migration', () => {
   it('detects and rejects duplicate completion IDs', () => {
     const backup = {
       version: 1,
+      exportedAt: '2026-01-02T10:00:00.000Z',
       profile: blankState().profile,
       quests: [sampleQuest({ id: 'q1' })],
       completions: [
@@ -449,6 +533,7 @@ describe('backup validation and schema migration', () => {
   it('rejects completions that reference unknown quests', () => {
     const backup = {
       version: 1,
+      exportedAt: '2026-01-02T10:00:00.000Z',
       profile: blankState().profile,
       quests: [sampleQuest({ id: 'real-quest' })],
       completions: [
@@ -469,6 +554,7 @@ describe('backup validation and schema migration', () => {
   it('rejects invalid completion fields', () => {
     const base = {
       version: 1,
+      exportedAt: '2026-01-02T10:00:00.000Z',
       profile: blankState().profile,
       quests: [sampleQuest({ id: 'q1' })],
       completions: [sampleCompletion({ questId: 'q1' })],
@@ -504,6 +590,7 @@ describe('backup validation and schema migration', () => {
   it('rejects invalid unlocked achievement IDs and deduplicates valid ones', () => {
     const invalidAchievement = {
       version: 1,
+      exportedAt: '2026-01-02T10:00:00.000Z',
       profile: blankState().profile,
       quests: [],
       completions: [],
@@ -519,6 +606,7 @@ describe('backup validation and schema migration', () => {
 
     const duplicateAchievements = {
       version: 1,
+      exportedAt: '2026-01-02T10:00:00.000Z',
       profile: blankState().profile,
       quests: [],
       completions: [],
@@ -539,6 +627,7 @@ describe('backup validation and schema migration', () => {
     // Attempt to parse corrupt backup
     const corruptJson = JSON.stringify({
       version: 1,
+      exportedAt: '2026-01-02T10:00:00.000Z',
       profile: { ...blankState().profile },
       quests: [sampleQuest({ id: 'dup' }), sampleQuest({ id: 'dup' })],
       completions: [],
@@ -553,4 +642,219 @@ describe('backup validation and schema migration', () => {
     expect(currentStorageState.profile.name).toBe('Tester')
     expect(currentStorageState.quests).toEqual([])
   })
-})
+
+  it('requires and strictly validates exportedAt in version 1 backups', () => {
+    const base = {
+      version: 1,
+      profile: blankState().profile,
+      quests: [],
+      completions: [],
+      unlocked: [],
+    }
+
+    // Missing exportedAt
+    const missingRes = validateAndMigrateBackup({ ...base })
+    expect(missingRes.success).toBe(false)
+    if (!missingRes.success) {
+      expect(missingRes.error).toContain('exportedAt')
+      expect(missingRes.error).toMatch(/missing/i)
+    }
+
+    // Null exportedAt
+    const nullRes = validateAndMigrateBackup({ ...base, exportedAt: null })
+    expect(nullRes.success).toBe(false)
+    if (!nullRes.success) {
+      expect(nullRes.error).toContain('exportedAt')
+    }
+
+    // Date-only string
+    const dateOnlyRes = validateAndMigrateBackup({
+      ...base,
+      exportedAt: '2026-01-01',
+    })
+    expect(dateOnlyRes.success).toBe(false)
+    if (!dateOnlyRes.success) {
+      expect(dateOnlyRes.error).toContain('exportedAt')
+    }
+
+    // Impossible calendar date: Feb 30
+    const feb30Res = validateAndMigrateBackup({
+      ...base,
+      exportedAt: '2026-02-30T10:00:00.000Z',
+    })
+    expect(feb30Res.success).toBe(false)
+    if (!feb30Res.success) {
+      expect(feb30Res.error).toContain('exportedAt')
+    }
+
+    // Non-leap year: 2026-02-29
+    const nonLeapRes = validateAndMigrateBackup({
+      ...base,
+      exportedAt: '2026-02-29T10:00:00.000Z',
+    })
+    expect(nonLeapRes.success).toBe(false)
+    if (!nonLeapRes.success) {
+      expect(nonLeapRes.error).toContain('exportedAt')
+    }
+
+    // Locale-formatted string
+    const localeRes = validateAndMigrateBackup({
+      ...base,
+      exportedAt: '01/01/2026 10:00:00',
+    })
+    expect(localeRes.success).toBe(false)
+    if (!localeRes.success) {
+      expect(localeRes.error).toContain('exportedAt')
+    }
+
+    // Valid ISO date-time with offset
+    const validOffsetRes = validateAndMigrateBackup({
+      ...base,
+      exportedAt: '2026-01-02T10:00:00+05:30',
+    })
+    expect(validOffsetRes.success).toBe(true)
+
+    // Valid ISO date-time with UTC Z
+    const validUtcRes = validateAndMigrateBackup({
+      ...base,
+      exportedAt: '2026-01-02T10:00:00.000Z',
+    })
+    expect(validUtcRes.success).toBe(true)
+  })
+
+  it('strictly validates quest createdAt timestamps in backup validation', () => {
+    const base = {
+      version: 1,
+      exportedAt: '2026-01-02T10:00:00.000Z',
+      profile: blankState().profile,
+      completions: [],
+      unlocked: [],
+    }
+
+    // Date-only createdAt is rejected
+    const dateOnlyQuest = validateAndMigrateBackup({
+      ...base,
+      quests: [sampleQuest({ createdAt: '2026-01-01' })],
+    })
+    expect(dateOnlyQuest.success).toBe(false)
+    if (!dateOnlyQuest.success) {
+      expect(dateOnlyQuest.error).toContain('createdAt')
+    }
+
+    // Impossible calendar date (Feb 30)
+    const impossibleDateQuest = validateAndMigrateBackup({
+      ...base,
+      quests: [sampleQuest({ createdAt: '2026-02-30T08:00:00.000Z' })],
+    })
+    expect(impossibleDateQuest.success).toBe(false)
+    if (!impossibleDateQuest.success) {
+      expect(impossibleDateQuest.error).toContain('createdAt')
+    }
+
+    // Non-leap year Feb 29
+    const nonLeapQuest = validateAndMigrateBackup({
+      ...base,
+      quests: [sampleQuest({ createdAt: '2026-02-29T08:00:00.000Z' })],
+    })
+    expect(nonLeapQuest.success).toBe(false)
+    if (!nonLeapQuest.success) {
+      expect(nonLeapQuest.error).toContain('createdAt')
+    }
+
+    // Locale-formatted createdAt
+    const localeQuest = validateAndMigrateBackup({
+      ...base,
+      quests: [sampleQuest({ createdAt: '01/01/2026 08:00:00' })],
+    })
+    expect(localeQuest.success).toBe(false)
+    if (!localeQuest.success) {
+      expect(localeQuest.error).toContain('createdAt')
+    }
+
+    // Valid leap day createdAt (2024 is a leap year)
+    const leapQuest = validateAndMigrateBackup({
+      ...base,
+      quests: [sampleQuest({ createdAt: '2024-02-29T08:00:00.000Z' })],
+    })
+    expect(leapQuest.success).toBe(true)
+  })
+
+  it('strictly validates completion completedAt timestamps in backup validation', () => {
+    const base = {
+      version: 1,
+      exportedAt: '2026-01-02T10:00:00.000Z',
+      profile: blankState().profile,
+      quests: [sampleQuest({ id: 'q1' })],
+      unlocked: [],
+    }
+
+    // Date-only completedAt is rejected
+    const dateOnlyComp = validateAndMigrateBackup({
+      ...base,
+      completions: [
+        sampleCompletion({ questId: 'q1', completedAt: '2026-01-02' }),
+      ],
+    })
+    expect(dateOnlyComp.success).toBe(false)
+    if (!dateOnlyComp.success) {
+      expect(dateOnlyComp.error).toContain('completedAt')
+    }
+
+    // Impossible calendar date (Feb 30)
+    const impossibleDateComp = validateAndMigrateBackup({
+      ...base,
+      completions: [
+        sampleCompletion({
+          questId: 'q1',
+          completedAt: '2026-02-30T09:30:00.000Z',
+        }),
+      ],
+    })
+    expect(impossibleDateComp.success).toBe(false)
+    if (!impossibleDateComp.success) {
+      expect(impossibleDateComp.error).toContain('completedAt')
+    }
+
+    // Non-leap year Feb 29
+    const nonLeapComp = validateAndMigrateBackup({
+      ...base,
+      completions: [
+        sampleCompletion({
+          questId: 'q1',
+          completedAt: '2026-02-29T09:30:00.000Z',
+        }),
+      ],
+    })
+    expect(nonLeapComp.success).toBe(false)
+    if (!nonLeapComp.success) {
+      expect(nonLeapComp.error).toContain('completedAt')
+    }
+
+    // Locale-formatted completedAt
+    const localeComp = validateAndMigrateBackup({
+      ...base,
+      completions: [
+        sampleCompletion({
+          questId: 'q1',
+          completedAt: '01/02/2026 09:30:00 AM',
+        }),
+      ],
+    })
+    expect(localeComp.success).toBe(false)
+    if (!localeComp.success) {
+      expect(localeComp.error).toContain('completedAt')
+    }
+
+    // Valid leap day completedAt (2024 is a leap year)
+    const leapComp = validateAndMigrateBackup({
+      ...base,
+      completions: [
+        sampleCompletion({
+          questId: 'q1',
+          completedAt: '2024-02-29T09:30:00.000Z',
+        }),
+      ],
+    })
+    expect(leapComp.success).toBe(true)
+  })
+})

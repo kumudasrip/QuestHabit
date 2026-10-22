@@ -16,6 +16,27 @@ import {
 export const STORAGE_KEY = 'questhabit.state'
 export const CURRENT_BACKUP_VERSION = 1
 
+const ISO_DATETIME_REGEX =
+  /^(\d{4})-(\d{2})-(\d{2})[Tt]([01]\d|2[0-3]):([0-5]\d):([0-5]\d)(?:\.\d+)?(?:[Zz]|([+-])([01]\d|2[0-3])(?::?([0-5]\d))?)$/
+
+export function isValidIsoDateTime(str: unknown): str is string {
+  if (typeof str !== 'string') return false
+  const match = ISO_DATETIME_REGEX.exec(str)
+  if (!match) return false
+  const year = Number(match[1])
+  const month = Number(match[2])
+  const day = Number(match[3])
+  if (month < 1 || month > 12 || day < 1 || day > 31) return false
+  const date = new Date(Date.UTC(year, month - 1, day))
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  )
+}
+
+export const isValidISODateTime = isValidIsoDateTime
+
 export interface VersionedBackup {
   version: 1
   exportedAt: string
@@ -181,7 +202,7 @@ export function validateQuestRecord(
     }
   }
 
-  if (typeof q.createdAt !== 'string' || isNaN(Date.parse(q.createdAt))) {
+  if (typeof q.createdAt !== 'string' || !isValidIsoDateTime(q.createdAt)) {
     return { valid: false, error: `${label} createdAt must be a valid ISO date-time string.` }
   }
 
@@ -236,7 +257,7 @@ export function validateCompletionRecord(
       error: `${label} date "${String(c.date)}" must be a valid calendar date in YYYY-MM-DD format.`,
     }
   }
-  if (typeof c.completedAt !== 'string' || isNaN(Date.parse(c.completedAt))) {
+  if (typeof c.completedAt !== 'string' || !isValidIsoDateTime(c.completedAt)) {
     return { valid: false, error: `${label} completedAt must be a valid ISO date-time string.` }
   }
   if (typeof c.xp !== 'number' || !Number.isInteger(c.xp) || c.xp < 0) {
@@ -302,6 +323,21 @@ export function validateAndMigrateBackup(raw: unknown): BackupValidationResult {
     return {
       success: false,
       error: `Unsupported backup schema version: ${rawVersion}. This version of QuestHabit supports up to version ${CURRENT_BACKUP_VERSION}.`,
+    }
+  }
+
+  if (!isMigrated) {
+    if (obj.exportedAt === undefined || obj.exportedAt === null) {
+      return {
+        success: false,
+        error: 'Backup is missing required "exportedAt" timestamp.',
+      }
+    }
+    if (typeof obj.exportedAt !== 'string' || !isValidIsoDateTime(obj.exportedAt)) {
+      return {
+        success: false,
+        error: 'Backup exportedAt must be a valid ISO date-time string.',
+      }
     }
   }
 
