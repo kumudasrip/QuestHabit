@@ -63,6 +63,84 @@ const navItems = [
   ["/settings", "Settings", Settings],
 ] as const;
 
+export const THEME_OPTIONS: {
+  id: Theme;
+  name: string;
+  tagline: string;
+  icon: string;
+  accent: string;
+  bgPreview: string;
+  cardPreview: string;
+}[] = [
+  {
+    id: "midnight",
+    name: "Midnight Violet",
+    tagline: "Deep cosmic obsidian with neon violet & cyan glow",
+    icon: "🌙",
+    accent: "#8b5cf6",
+    bgPreview: "#080a11",
+    cardPreview: "#151a29",
+  },
+  {
+    id: "forest",
+    name: "Forest Realm",
+    tagline: "Enchanted mossy woodland with emerald & jade runes",
+    icon: "🌲",
+    accent: "#10b981",
+    bgPreview: "#07130f",
+    cardPreview: "#0e201b",
+  },
+  {
+    id: "ember",
+    name: "Ember Quest",
+    tagline: "Volcanic charcoal hearth with blazing flame accents",
+    icon: "🔥",
+    accent: "#ea580c",
+    bgPreview: "#130907",
+    cardPreview: "#22120e",
+  },
+  {
+    id: "light",
+    name: "Light Mode",
+    tagline: "Crisp sunlit parchment with vivid royal violet contrast",
+    icon: "☀️",
+    accent: "#7c3aed",
+    bgPreview: "#f6f8fc",
+    cardPreview: "#ffffff",
+  },
+];
+
+export function ThemeQuickToggle({
+  theme,
+  onSelectTheme,
+}: {
+  theme: Theme;
+  onSelectTheme: (t: Theme) => void;
+}) {
+  const current =
+    THEME_OPTIONS.find((t) => t.id === theme) ?? THEME_OPTIONS[0];
+  const nextTheme = () => {
+    const idx = THEME_OPTIONS.findIndex((t) => t.id === theme);
+    const nextIdx = (idx + 1) % THEME_OPTIONS.length;
+    onSelectTheme(THEME_OPTIONS[nextIdx].id);
+  };
+
+  return (
+    <button
+      type="button"
+      className="theme-toggle-btn"
+      onClick={nextTheme}
+      aria-label={`Current theme is ${current.name}. Click to switch theme`}
+      title="Click to cycle theme"
+    >
+      <span className="theme-toggle-icon" aria-hidden="true">
+        {current.icon}
+      </span>
+      <span>{current.name}</span>
+    </button>
+  );
+}
+
 function useDialogFocus(
   isOpen: boolean,
   onClose: () => void,
@@ -386,6 +464,39 @@ export function Layout({
               </Link>
             ))}
           </nav>
+          <div className="sidebar-theme-row">
+            <div
+              className="sidebar-theme-toggle"
+              role="group"
+              aria-label="Theme selector"
+            >
+              <span className="small" style={{ fontWeight: 600 }}>
+                Theme
+              </span>
+              <div className="sidebar-theme-pills">
+                {THEME_OPTIONS.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    className={`sidebar-theme-pill ${state.profile.theme === t.id ? "active" : ""}`}
+                    onClick={() =>
+                      update(
+                        {
+                          ...state,
+                          profile: { ...state.profile, theme: t.id },
+                        },
+                        `Theme: ${t.name}`,
+                      )
+                    }
+                    aria-label={`Switch to ${t.name}`}
+                    title={t.name}
+                  >
+                    <span aria-hidden="true">{t.icon}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
           <MiniProfile state={state} />
         </aside>
         <main className="main" id="main-content" tabIndex={-1}>
@@ -527,9 +638,20 @@ export function Dashboard({
         title={`${greeting()}, ${state.profile.name || "Adventurer"}`}
         subtitle="Every small step counts. Ready for today's quests?"
         action={
-          <Link to="/settings" className="button ghost" aria-label="Settings">
-            <Settings size={16} aria-hidden="true" />
-          </Link>
+          <div className="actions" style={{ alignItems: "center" }}>
+            <ThemeQuickToggle
+              theme={state.profile.theme}
+              onSelectTheme={(t) =>
+                update(
+                  { ...state, profile: { ...state.profile, theme: t } },
+                  `Theme: ${THEME_OPTIONS.find((x) => x.id === t)?.name ?? t}`,
+                )
+              }
+            />
+            <Link to="/settings" className="button ghost" aria-label="Settings">
+              <Settings size={16} aria-hidden="true" />
+            </Link>
+          </div>
         }
       />
       <div className="grid two">
@@ -932,7 +1054,7 @@ export function Quests({
               position: "absolute",
               left: 11,
               top: 12,
-              color: "#94a3b8",
+              color: "var(--text-muted)",
             }}
             aria-hidden="true"
           />
@@ -1832,21 +1954,84 @@ export function SettingsPage({
               id="settings-theme-select"
               className="select"
               value={p.theme}
-              onChange={(e) =>
+              onChange={(e) => {
+                const next = e.target.value as Theme;
+                const opt = THEME_OPTIONS.find((t) => t.id === next);
                 update(
                   {
                     ...state,
-                    profile: { ...p, theme: e.target.value as Theme },
+                    profile: { ...p, theme: next },
                   },
-                  "Theme updated",
-                )
-              }
+                  `Theme updated to ${opt?.name ?? next}`,
+                );
+              }}
             >
               <option value="midnight">Midnight Violet</option>
               <option value="forest">Forest Realm</option>
               <option value="ember">Ember Quest</option>
               <option value="light">Light Mode</option>
             </select>
+            <div
+              className="theme-gallery"
+              role="radiogroup"
+              aria-label="Color palette selection"
+            >
+              {THEME_OPTIONS.map((t) => {
+                const isSelected = p.theme === t.id;
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={isSelected}
+                    aria-label={`Activate ${t.name}`}
+                    className={`theme-card-option ${isSelected ? "selected" : ""}`}
+                    onClick={() =>
+                      update(
+                        {
+                          ...state,
+                          profile: { ...p, theme: t.id },
+                        },
+                        `Theme updated to ${t.name}`,
+                      )
+                    }
+                  >
+                    <div className="theme-card-header">
+                      <div className="theme-card-title-row">
+                        <span className="theme-card-icon" aria-hidden="true">
+                          {t.icon}
+                        </span>
+                        <span className="theme-card-title">{t.name}</span>
+                      </div>
+                      {isSelected && (
+                        <span className="theme-card-badge" aria-hidden="true">
+                          <Check size={12} strokeWidth={3} />
+                          Active
+                        </span>
+                      )}
+                    </div>
+                    <div className="theme-card-desc">{t.tagline}</div>
+                    <div className="theme-card-swatches" aria-hidden="true">
+                      <span
+                        className="theme-swatch-dot"
+                        style={{ backgroundColor: t.bgPreview }}
+                        title="Background"
+                      />
+                      <span
+                        className="theme-swatch-dot"
+                        style={{ backgroundColor: t.cardPreview }}
+                        title="Card surface"
+                      />
+                      <span
+                        className="theme-swatch-dot"
+                        style={{ backgroundColor: t.accent }}
+                        title="Accent tone"
+                      />
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
           <div className="field" style={{ marginTop: 14 }}>
             <label htmlFor="settings-target-input">Daily quest target</label>
@@ -1906,7 +2091,7 @@ export function SettingsPage({
               />
             </label>
           </div>
-          <hr style={{ borderColor: "#ffffff12", margin: "24px 0" }} />
+          <hr style={{ borderColor: "var(--border-subtle)", margin: "24px 0" }} />
           <button type="button" className="button danger" onClick={reset}>
             <Trash2
               size={15}

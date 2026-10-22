@@ -5,6 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#0b0d14" />
     <title>QuestHabit — Small quests. Epic growth.</title>
+    <script>
+      (function() {
+        try {
+          var raw = localStorage.getItem('questhabit.state');
+          if (raw) {
+            var parsed = JSON.parse(raw);
+            if (parsed && parsed.profile && parsed.profile.theme) {
+              document.documentElement.setAttribute('data-theme', parsed.profile.theme);
+            }
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
