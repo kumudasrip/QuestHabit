@@ -43,7 +43,7 @@ import {
   WEEKDAYS,
   dueOn,
   id,
-  isValidQuest,
+  getQuestValidationErrors,
   levelInfo,
   starterQuests,
   streak,
@@ -123,8 +123,7 @@ export function ThemeQuickToggle({
   theme: Theme;
   onSelectTheme: (t: Theme) => void;
 }) {
-  const current =
-    THEME_OPTIONS.find((t) => t.id === theme) ?? THEME_OPTIONS[0];
+  const current = THEME_OPTIONS.find((t) => t.id === theme) ?? THEME_OPTIONS[0];
   const nextTheme = () => {
     const idx = THEME_OPTIONS.findIndex((t) => t.id === theme);
     const nextIdx = (idx + 1) % THEME_OPTIONS.length;
@@ -1171,7 +1170,8 @@ export function QuestModal({
     icon: quest?.icon ?? "✨",
     category: (quest?.category ?? "Productivity") as Category,
     difficulty: (quest?.difficulty ?? "Easy") as Difficulty,
-    xp: quest?.xp ?? 10,
+    xp: String(quest?.xp ?? 10),
+    duration: String(quest?.duration ?? 15),
     frequency: (quest?.frequency ?? "Daily") as Quest["frequency"],
     weekdays: Array.isArray(quest?.weekdays) ? quest.weekdays : [],
   });
@@ -1192,7 +1192,18 @@ export function QuestModal({
   const titleInputRef = useRef<HTMLInputElement>(null);
   const dialogRef = useDialogFocus(true, close, triggerRef, titleInputRef);
 
-  const canSave = isValidQuest(form);
+  const [touched, setTouched] = useState({
+    title: isEdit,
+    xp: isEdit,
+    duration: isEdit,
+  });
+  const values = {
+    ...form,
+    xp: form.xp.trim() ? Number(form.xp) : NaN,
+    duration: form.duration.trim() ? Number(form.duration) : NaN,
+  };
+  const errors = getQuestValidationErrors(values);
+  const canSave = Object.keys(errors).length === 0;
 
   const save = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -1201,7 +1212,7 @@ export function QuestModal({
     if (isEdit && quest) {
       const updatedQuest: Quest = {
         ...quest,
-        ...form,
+        ...values,
         title: form.title.trim(),
         weekdays:
           form.frequency === "Custom" ? form.weekdays : (quest.weekdays ?? []),
@@ -1217,10 +1228,9 @@ export function QuestModal({
       );
     } else {
       const q: Quest = {
-        ...form,
+        ...values,
         title: form.title.trim(),
         id: id(),
-        duration: 15,
         weekdays: form.frequency === "Custom" ? form.weekdays : [],
         startDate: today(),
         status: "active",
@@ -1267,7 +1277,7 @@ export function QuestModal({
             <X aria-hidden="true" />
           </button>
         </div>
-        <form onSubmit={save}>
+        <form onSubmit={save} noValidate>
           <div className="form-grid">
             <div className="field">
               <label htmlFor="quest-title-input">Quest title</label>
@@ -1278,9 +1288,28 @@ export function QuestModal({
                 autoFocus
                 required
                 value={form.title}
-                onChange={(e) => set("title", e.target.value)}
+                aria-invalid={touched.title && Boolean(errors.title)}
+                aria-describedby={
+                  touched.title && errors.title
+                    ? "quest-title-error"
+                    : undefined
+                }
+                onBlur={() => setTouched((x) => ({ ...x, title: true }))}
+                onChange={(e) => {
+                  set("title", e.target.value);
+                  setTouched((x) => ({ ...x, title: true }));
+                }}
                 placeholder="e.g. Walk in the park"
               />
+              {touched.title && errors.title && (
+                <p
+                  id="quest-title-error"
+                  className="field-hint error"
+                  role="alert"
+                >
+                  {errors.title}
+                </p>
+              )}
             </div>
             <div className="field">
               <label htmlFor="quest-icon-input">Icon</label>
@@ -1334,7 +1363,7 @@ export function QuestModal({
                   setForm((x) => ({
                     ...x,
                     difficulty: d,
-                    xp: d === "Easy" ? 10 : d === "Medium" ? 25 : 50,
+                    xp: String(d === "Easy" ? 10 : d === "Medium" ? 25 : 50),
                   }));
                 }}
               >
@@ -1353,9 +1382,60 @@ export function QuestModal({
                 type="number"
                 min="5"
                 max="100"
+                step="1"
+                required
                 value={form.xp}
-                onChange={(e) => set("xp", Number(e.target.value))}
+                aria-invalid={touched.xp && Boolean(errors.xp)}
+                aria-describedby={
+                  touched.xp && errors.xp ? "quest-xp-error" : undefined
+                }
+                onBlur={() => setTouched((x) => ({ ...x, xp: true }))}
+                onChange={(e) => {
+                  set("xp", e.target.value);
+                  setTouched((x) => ({ ...x, xp: true }));
+                }}
               />
+              {touched.xp && errors.xp && (
+                <p
+                  id="quest-xp-error"
+                  className="field-hint error"
+                  role="alert"
+                >
+                  {errors.xp}
+                </p>
+              )}
+            </div>
+            <div className="field">
+              <label htmlFor="quest-duration-input">Duration (minutes)</label>
+              <input
+                id="quest-duration-input"
+                className="input"
+                type="number"
+                min="0"
+                step="1"
+                required
+                value={form.duration}
+                aria-invalid={touched.duration && Boolean(errors.duration)}
+                aria-describedby={
+                  touched.duration && errors.duration
+                    ? "quest-duration-error"
+                    : undefined
+                }
+                onBlur={() => setTouched((x) => ({ ...x, duration: true }))}
+                onChange={(e) => {
+                  set("duration", e.target.value);
+                  setTouched((x) => ({ ...x, duration: true }));
+                }}
+              />
+              {touched.duration && errors.duration && (
+                <p
+                  id="quest-duration-error"
+                  className="field-hint error"
+                  role="alert"
+                >
+                  {errors.duration}
+                </p>
+              )}
             </div>
             <div className="field">
               <label htmlFor="quest-frequency-select">Frequency</label>
@@ -1379,6 +1459,9 @@ export function QuestModal({
                 <div
                   role="group"
                   aria-labelledby="quest-weekdays-label"
+                  aria-describedby={
+                    errors.weekdays ? "quest-weekdays-error" : undefined
+                  }
                   className="weekday-grid"
                 >
                   {WEEKDAYS.map(({ day, label, short }) => {
@@ -1398,9 +1481,13 @@ export function QuestModal({
                     );
                   })}
                 </div>
-                {form.weekdays.length === 0 && (
-                  <p className="field-hint error" role="alert">
-                    Please select at least one weekday.
+                {errors.weekdays && (
+                  <p
+                    id="quest-weekdays-error"
+                    className="field-hint error"
+                    role="alert"
+                  >
+                    {errors.weekdays}
                   </p>
                 )}
               </div>
@@ -2099,7 +2186,9 @@ export function SettingsPage({
               />
             </label>
           </div>
-          <hr style={{ borderColor: "var(--border-subtle)", margin: "24px 0" }} />
+          <hr
+            style={{ borderColor: "var(--border-subtle)", margin: "24px 0" }}
+          />
           <button type="button" className="button danger" onClick={reset}>
             <Trash2
               size={15}

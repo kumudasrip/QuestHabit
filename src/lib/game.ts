@@ -62,38 +62,39 @@ export const WEEKDAYS = [
   { day: 0, label: 'Sunday', short: 'Sun' },
 ] as const
 
-export const isValidQuest = (quest: {
+type QuestValidationInput = {
   title?: string
   frequency?: Quest['frequency']
   weekdays?: number[]
-}): boolean => {
-  if (!quest.title || !quest.title.trim()) return false
-  if (quest.frequency === 'Custom') {
-    return (
-      Array.isArray(quest.weekdays) &&
-      quest.weekdays.length > 0 &&
-      quest.weekdays.every(d => Number.isInteger(d) && d >= 0 && d <= 6)
-    )
-  }
-  return true
+  xp?: number
+  duration?: number
 }
 
-export const validateQuest = (quest: {
-  title?: string
-  frequency?: Quest['frequency']
-  weekdays?: number[]
-}): { valid: boolean; error?: string } => {
-  if (!quest.title || !quest.title.trim()) {
-    return { valid: false, error: 'Quest title is required.' }
+export const getQuestValidationErrors = (quest: QuestValidationInput) => {
+  const errors: Partial<Record<'title' | 'xp' | 'duration' | 'weekdays', string>> = {}
+  if (!quest.title?.trim()) errors.title = 'Quest title is required.'
+  if (quest.xp !== undefined && (!Number.isInteger(quest.xp) || quest.xp < 5 || quest.xp > 100)) {
+    errors.xp = 'XP reward must be a whole number from 5 to 100.'
   }
-  if (quest.frequency === 'Custom' && (!Array.isArray(quest.weekdays) || quest.weekdays.length === 0)) {
-    return { valid: false, error: 'Custom quests must repeat on at least one weekday.' }
+  if (quest.duration !== undefined && (!Number.isSafeInteger(quest.duration) || quest.duration < 0)) {
+    errors.duration = 'Duration must be a non-negative whole number of minutes.'
   }
-  if (quest.frequency === 'Custom' && Array.isArray(quest.weekdays) && !quest.weekdays.every(d => Number.isInteger(d) && d >= 0 && d <= 6)) {
-    return { valid: false, error: 'Selected weekdays must be valid JavaScript day numbers (0-6).' }
+  if (quest.frequency === 'Custom') {
+    if (!Array.isArray(quest.weekdays) || quest.weekdays.length === 0) {
+      errors.weekdays = 'Custom quests must repeat on at least one weekday.'
+    } else if (!quest.weekdays.every(d => Number.isInteger(d) && d >= 0 && d <= 6)) {
+      errors.weekdays = 'Selected weekdays must be valid JavaScript day numbers (0-6).'
+    }
   }
-  return { valid: true }
+  return errors
 }
+
+export const validateQuest = (quest: QuestValidationInput): { valid: boolean; error?: string } => {
+  const error = Object.values(getQuestValidationErrors(quest))[0]
+  return error ? { valid: false, error } : { valid: true }
+}
+
+export const isValidQuest = (quest: QuestValidationInput): boolean => validateQuest(quest).valid
 
 export const today = () => {
   const date = new Date()
